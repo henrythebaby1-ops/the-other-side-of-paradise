@@ -1,0 +1,1839 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Other Side of Paradise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #fff6ec;
+    --dim: rgba(255, 246, 236, 0.65);
+    --glow: #ffb36b;
+    --pink: #ff5fa2;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a0b2e; color: var(--ink); font-family: "Space Mono", monospace; }
+  canvas { display: block; }
+  .overlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 16px; transition: opacity 1.2s ease; z-index: 5;
+  }
+  .hidden { opacity: 0; pointer-events: none; }
+
+  /* Mirrored title, like the album-style artwork */
+  .title { font-family: "Archivo Black", sans-serif; line-height: 0.92; user-select: none; }
+  .title .word { display: block; white-space: nowrap; font-size: clamp(20px, 6vw, 96px); transform: scaleY(1.35); transform-origin: bottom; letter-spacing: -1px; color: var(--ink); text-shadow: 0 0 30px rgba(255,140,90,.55); }
+  .title .mirror { transform: scaleY(-1.35); transform-origin: top; color: rgba(255,246,236,.28); text-shadow: none; }
+  .tagline { margin-top: 48px; font-size: clamp(13px, 2vw, 17px); color: var(--dim); max-width: 560px; line-height: 1.6; }
+  .btn {
+    margin-top: 28px; font: 700 16px "Space Mono", monospace; letter-spacing: 3px; text-transform: uppercase;
+    color: #2a0f2f; background: var(--ink); border: 0; border-radius: 999px; padding: 14px 34px; cursor: pointer;
+    box-shadow: 0 0 40px rgba(255,179,107,.6); transition: transform .2s;
+  }
+  .btn:hover { transform: scale(1.06); }
+  .credit-small { position: fixed; bottom: 14px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--dim); letter-spacing: 1px; z-index: 6; }
+
+  #hud { position: fixed; top: 0; left: 0; right: 0; padding: 18px 16px; text-align: center; pointer-events: none; z-index: 4; }
+  #hud .goal { font-family: "Archivo Black", sans-serif; font-size: clamp(16px, 3vw, 26px); letter-spacing: 1px; }
+  #hud .sub { font-size: 13px; color: var(--dim); margin-top: 6px; }
+  #msg { position: fixed; bottom: 18%; left: 0; right: 0; text-align: center; padding: 0 16px; font-size: clamp(15px, 2.4vw, 22px); pointer-events: none; z-index: 4; transition: opacity .6s; text-shadow: 0 2px 12px rgba(0,0,0,.8); }
+  #round { position: fixed; top: 48px; right: 16px; font-size: 12px; color: var(--dim); z-index: 4; }
+  #mute { position: fixed; top: 14px; left: 16px; z-index: 7; background: rgba(0,0,0,.25); color: var(--ink); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; font: 12px "Space Mono", monospace; padding: 6px 12px; cursor: pointer; }
+
+  /* Room HUD */
+  #roomHud { position: fixed; top: 54px; left: 16px; z-index: 4; pointer-events: none; font-size: 11px; line-height: 1.55; max-height: calc(100vh - 140px); overflow: hidden; opacity: .9; background: rgba(20,8,30,.45); padding: 10px 14px; border-radius: 12px; }
+  #roomHud .done { color: var(--glow); text-decoration: line-through; opacity: .8; }
+  #glyphs { position: fixed; top: 14px; left: 0; right: 0; text-align: center; font-family: "Archivo Black", sans-serif; font-size: clamp(22px, 3.5vw, 34px); letter-spacing: 10px; z-index: 4; pointer-events: none; }
+  #glyphs .got { color: var(--glow); text-shadow: 0 0 16px rgba(255,179,107,.8); }
+  #glyphs .empty { color: rgba(255,255,255,.25); }
+  #crosshair { position: fixed; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border: 2px solid rgba(255,246,236,.85); border-radius: 50%; z-index: 4; pointer-events: none; }
+  #crosshair.hot { border-color: var(--pink); transform: scale(1.6); }
+  #lockHint { background: rgba(15,5,25,.55); z-index: 6; cursor: pointer; }
+  #lockHint h3 { font-family: "Archivo Black", sans-serif; font-size: clamp(20px, 3vw, 30px); margin: 0 0 14px; }
+  #lockHint p { color: var(--dim); margin: 4px 0; font-size: 14px; }
+  #fade { position: fixed; inset: 0; background: #000; z-index: 9; opacity: 0; pointer-events: none; transition: opacity 1.2s; }
+
+  /* Ending: scrollable, sized to fit */
+  #ending { background: #000; justify-content: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #ending .inner { margin: auto; padding: 40px 0; max-width: 900px; width: 100%; }
+  #ending .line { font-family: "Archivo Black", sans-serif; font-size: clamp(18px, 3.6vw, 44px); line-height: 1.25; opacity: 0; transition: opacity 2s ease; margin: 18px 0; }
+  #ending .line.show { opacity: 1; }
+  #ending .line:nth-child(2) { color: var(--glow); }
+  #ending .line:nth-child(3) { color: var(--dim); font-size: clamp(15px, 2.6vw, 28px); }
+
+  /* Credits: auto-rolls, but you can scroll it yourself */
+  #credits { background: #000; display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px; }
+  #roll { text-align: center; padding: 70vh 0 30vh; }
+  #roll h2 { font-family: "Archivo Black", sans-serif; font-size: clamp(22px, 4vw, 40px); margin: 0 0 60px; }
+  #roll .role { color: var(--dim); font-size: 13px; letter-spacing: 3px; text-transform: uppercase; margin-top: 44px; }
+  #roll .name { font-size: clamp(16px, 2.6vw, 26px); margin-top: 6px; }
+  #scrollTip { position: fixed; bottom: 14px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--dim); z-index: 6; pointer-events: none; transition: opacity 1s; }
+
+  #fallback { position: fixed; bottom: 44px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--dim); z-index: 7; }
+  #fallback label { text-decoration: underline; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<button id="mute" class="hidden">♪ music on</button>
+<button id="vrIn" class="hidden" style="position:fixed;top:14px;right:16px;z-index:7;background:rgba(0,0,0,.25);color:var(--ink);border:1px solid rgba(255,255,255,.25);border-radius:999px;font:12px 'Space Mono',monospace;padding:6px 12px;cursor:pointer;display:none">enter VR</button>
+
+<div id="title" class="overlay">
+  <div class="title">
+    <span class="word">The Other Side of Paradise</span>
+    <span class="word mirror">The Other Side of Paradise</span>
+  </div>
+  <p class="tagline">You wake up in Professor Ersheim’s room of illusions.<br>Escape it, then find the number between 3 and 4.<br><small>Mouse + keyboard · WASD to move · click to interact</small></p>
+  <button class="btn" id="start">Start</button>
+  <button class="btn hidden" id="startVR" style="display:none">Play in VR</button>
+  <p class="tagline" id="vrNote" style="margin-top:14px;display:none"><small>VR: left stick or WASD to move · drag the mouse or use arrow keys to look around · right stick or Q/E to snap-turn · trigger, Space or click to interact with what you point or look at</small></p>
+</div>
+<div class="credit-small" id="titleCredit">Music: “The Other Side of Paradise” by Glass Animals</div>
+<div id="fallback" class="hidden">Couldn't load the song. <label>Pick the song file<input type="file" accept="audio/*,.mp3,.flac" hidden id="pick"></label></div>
+
+<!-- Room -->
+<div id="glyphs" class="hidden"></div>
+<div id="roomHud" class="hidden"></div>
+<div id="crosshair" class="hidden"></div>
+<div id="lockHint" class="overlay hidden">
+  <h3>Click to look around</h3>
+  <p>WASD / arrow keys to move · mouse to look</p>
+  <p>Click on things to interact · Esc to release the mouse</p>
+</div>
+
+<!-- Number line -->
+<div id="hud" class="hidden">
+  <div class="goal">Find the number between <span id="lo">3</span> and <span id="hi">4</span></div>
+  <div class="sub">Click on the line.</div>
+</div>
+<div id="round" class="hidden"></div>
+<div id="msg"></div>
+<div id="fade"></div>
+
+<div id="ending" class="overlay hidden">
+  <div class="inner">
+    <div class="line">Theres no number between 3 and 4</div>
+    <div class="line">or there is</div>
+    <div class="line">we'll never know though</div>
+  </div>
+</div>
+
+<div id="credits" class="overlay hidden">
+  <div id="roll">
+    <h2>The Other Side of Paradise</h2>
+    <div class="role">Music</div>
+    <div class="name">“The Other Side of Paradise”</div>
+    <div class="name">Glass Animals</div>
+    <div class="role">From</div>
+    <div class="name">How to Be a Human Being (2016)</div>
+    <div class="role">Song written by</div>
+    <div class="name">Dave Bayley</div>
+    <div class="role">Glass Animals are</div>
+    <div class="name">Dave Bayley · Drew MacFarlane</div>
+    <div class="name">Edmund Irwin-Singer · Joe Seaward</div>
+    <div class="role">Illusions featured</div>
+    <div class="name">Anamorphic art · Adelson's checker shadow</div>
+    <div class="name">Müller-Lyer lines · The Penrose triangle</div>
+    <div class="name">The Hermann grid · Kanizsa's triangle</div>
+    <div class="name">Negative afterimages · Forced perspective</div>
+    <div class="name">The upside-down room · The endless door</div>
+    <div class="role">Inspired by</div>
+    <div class="name">“The Secret Number”</div>
+    <div class="name">short film by Colin Levy (2012)</div>
+    <div class="name">from the short story by Igor Teper</div>
+    <div class="name">Prof. Ersheim · Dr. Tomlin · Laszlo Bleem · bleem</div>
+    <div class="role">Numbers between 3 and 4</div>
+    <div class="name">∞ (maybe)</div>
+    <div class="role">Thanks for playing</div>
+    <div class="name">All music rights belong to Glass Animals<br>and their labels.</div>
+    <div style="height:20vh"></div>
+    <button class="btn" id="again">Play again</button>
+  </div>
+</div>
+<div id="scrollTip" class="hidden">scroll to read at your own pace</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+
+  // ---------- Music ----------
+  const SONG = "the-other-side-of-paradise.mp3";
+  const audio = new Audio(encodeURIComponent(SONG));
+  audio.loop = true;
+  audio.volume = 0.8;
+  const muteBtn = $('mute');
+  const fallback = $('fallback');
+  audio.addEventListener('error', () => fallback.classList.remove('hidden'));
+  audio.addEventListener('canplay', () => fallback.classList.add('hidden'));
+  $('pick').addEventListener('change', e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    audio.src = URL.createObjectURL(f);
+    audio.play().catch(() => {});
+    fallback.classList.add('hidden');
+  });
+  muteBtn.onclick = () => {
+    audio.muted = !audio.muted;
+    muteBtn.textContent = audio.muted ? '♪ music off' : '♪ music on';
+  };
+  function fadeVolume(to, ms) {
+    const from = audio.volume, t0 = performance.now();
+    const step = now => {
+      const k = Math.min(1, (now - t0) / ms);
+      audio.volume = from + (to - from) * k;
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  // ---------- Renderer ----------
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.xr.enabled = true;
+  document.body.prepend(renderer.domElement);
+  let vr = false;
+  const controllers = [];
+
+  // ---------- Labels ----------
+  function makeLabel(text, opts = {}) {
+    const c = document.createElement('canvas');
+    const ctx = c.getContext('2d');
+    const depth = opts.depthTest === true;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: depth }));
+    if (!depth) sprite.renderOrder = 10;
+    sprite.userData.set = t => {
+      const fs = 96;
+      const font = `${opts.bold ? 'bold ' : ''}${fs}px "${opts.font || 'Space Mono'}", monospace`;
+      ctx.font = font;
+      const w = Math.max(8, Math.ceil(ctx.measureText(t).width) + 40);
+      c.width = w; c.height = fs * 1.4;
+      ctx.font = font;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = opts.glow || 'rgba(255,150,100,0.9)'; ctx.shadowBlur = 24;
+      ctx.fillStyle = opts.color || '#fff6ec';
+      ctx.fillText(t, w / 2, c.height / 2);
+      sprite.material.map.dispose();
+      sprite.material.map = new THREE.CanvasTexture(c);
+      const h = opts.size || 1.2;
+      sprite.scale.set(h * w / c.height, h, 1);
+    };
+    sprite.userData.set(text);
+    return sprite;
+  }
+
+  // =====================================================================
+  //  PARADISE SCENE (number line)
+  // =====================================================================
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x5a2a5e, 40, 140);
+  const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 500);
+  camera.position.set(0, 3, 22);
+  const prig = new THREE.Group();   // VR rig for the paradise scene
+  scene.add(prig);
+  const prigPivot = new THREE.Group();   // pitch/yaw for mouse look in VR, pivoting at head height
+  prigPivot.position.y = 1.6;
+  prigPivot.rotation.order = 'YXZ';
+  prig.add(prigPivot);
+  const prigInner = new THREE.Group();
+  prigInner.position.y = -1.6;
+  prigPivot.add(prigInner);
+  prigInner.add(camera);
+
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(300, 32, 16),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false,
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: `varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+      fragmentShader: `
+        varying vec3 vP; uniform float uTime;
+        void main(){
+          float h = vP.y;
+          vec3 top = vec3(0.10, 0.04, 0.22);
+          vec3 mid = vec3(0.85, 0.30, 0.45);
+          vec3 low = vec3(1.00, 0.62, 0.32);
+          vec3 c = mix(low, mid, smoothstep(-0.02, 0.18, h));
+          c = mix(c, top, smoothstep(0.15, 0.6, h));
+          float s = fract(sin(dot(floor(vP.xz * 400.0), vec2(12.9898,78.233))) * 43758.5453);
+          c += step(0.9975, s) * smoothstep(0.3, 0.7, h) * (0.6 + 0.4 * sin(uTime * 2.0 + s * 50.0));
+          gl_FragColor = vec4(c, 1.0);
+        }`
+    })
+  );
+  scene.add(sky);
+
+  const sunMat = new THREE.ShaderMaterial({
+    transparent: true, fog: false, uniforms: { uTime: { value: 0 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `
+      varying vec2 vUv; uniform float uTime;
+      void main(){
+        vec3 c = mix(vec3(1.0,0.35,0.55), vec3(1.0,0.85,0.4), vUv.y);
+        float band = step(0.5, fract(vUv.y * 14.0 + uTime * 0.15));
+        float cut = vUv.y < 0.5 ? band : 1.0;
+        gl_FragColor = vec4(c, cut);
+      }`
+  });
+  const sun = new THREE.Mesh(new THREE.CircleGeometry(18, 64), sunMat);
+  sun.position.set(0, 6, -160);
+  scene.add(sun);
+
+  const oceanGeo = new THREE.PlaneGeometry(400, 300, 120, 90);
+  oceanGeo.rotateX(-Math.PI / 2);
+  const oceanBase = oceanGeo.attributes.position.array.slice();
+  const ocean = new THREE.Mesh(oceanGeo, new THREE.MeshStandardMaterial({
+    color: 0x3a1f6e, roughness: 0.55, metalness: 0.35, flatShading: true
+  }));
+  ocean.position.y = -4;
+  scene.add(ocean);
+
+  scene.add(new THREE.HemisphereLight(0xffa07a, 0x2a1050, 0.9));
+  const sunLight = new THREE.DirectionalLight(0xffb070, 0.8);
+  sunLight.position.set(0, 10, -60);
+  scene.add(sunLight);
+
+  const palmMat = new THREE.MeshBasicMaterial({ color: 0x1b0a24 });
+  function palm(x, z, h, lean) {
+    const g = new THREE.Group();
+    const segs = 8;
+    let px = 0, py = 0;
+    for (let i = 0; i < segs; i++) {
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.28 - i * 0.02, 0.32 - i * 0.02, h / segs, 6), palmMat);
+      px += lean * (i / segs) * 0.35;
+      py += h / segs;
+      s.position.set(px, py - h / segs / 2, 0);
+      s.rotation.z = -lean * 0.15;
+      g.add(s);
+    }
+    for (let i = 0; i < 7; i++) {
+      const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.5, 5, 4), palmMat);
+      leaf.scale.set(1, 1, 0.25);
+      const a = (i / 7) * Math.PI * 2;
+      leaf.position.set(px + Math.cos(a) * 2, py - 0.6, Math.sin(a) * 2);
+      leaf.rotation.set(Math.sin(a) * 1.9, 0, -Math.cos(a) * 1.9);
+      g.add(leaf);
+    }
+    g.position.set(x, -4, z);
+    g.userData.sway = Math.random() * 6;
+    scene.add(g);
+    return g;
+  }
+  const palms = [palm(-24, -10, 14, 1), palm(-30, -22, 18, 0.6), palm(26, -12, 15, -1), palm(34, -26, 19, -0.5), palm(-17, -30, 11, 1.2), palm(20, -34, 12, -1.1)];
+
+  const sparkGeo = new THREE.BufferGeometry();
+  const SP = 400, sp = new Float32Array(SP * 3);
+  for (let i = 0; i < SP; i++) { sp[i*3] = (Math.random()-0.5)*80; sp[i*3+1] = Math.random()*20-2; sp[i*3+2] = (Math.random()-0.5)*60 - 10; }
+  sparkGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+  const sparks = new THREE.Points(sparkGeo, new THREE.PointsMaterial({ color: 0xffd6a0, size: 0.12, transparent: true, opacity: 0.8 }));
+  scene.add(sparks);
+
+  // Number line
+  const HALF = 10;
+  const lineGroup = new THREE.Group();
+  lineGroup.position.y = 2;
+  scene.add(lineGroup);
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2, 0.18, 0.18), new THREE.MeshBasicMaterial({ color: 0xfff1dc, transparent: true }));
+  lineGroup.add(bar);
+  const barGlow = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2, 0.6, 0.6), new THREE.MeshBasicMaterial({ color: 0xff8a5c, transparent: true, opacity: 0.18 }));
+  lineGroup.add(barGlow);
+  const hitbox = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2.2, 3, 2), new THREE.MeshBasicMaterial({ visible: false }));
+  lineGroup.add(hitbox);
+  function pillar(x) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.4, 16), new THREE.MeshBasicMaterial({ color: 0xffc27a }));
+    m.position.x = x;
+    lineGroup.add(m);
+  }
+  pillar(-HALF); pillar(HALF);
+  const loLabel = makeLabel('3', { size: 1.4, bold: true }); loLabel.position.set(-HALF, -1.9, 0); lineGroup.add(loLabel);
+  const hiLabel = makeLabel('4', { size: 1.4, bold: true }); hiLabel.position.set(HALF, -1.9, 0); lineGroup.add(hiLabel);
+
+  const tickGroup = new THREE.Group();
+  lineGroup.add(tickGroup);
+  const tickMat = new THREE.LineBasicMaterial({ color: 0xffe6c8, transparent: true, opacity: 0.85 });
+  function buildTicks() {
+    while (tickGroup.children.length) {
+      const o = tickGroup.children.pop();
+      o.geometry && o.geometry.dispose();
+    }
+    const pts = [];
+    for (let i = 0; i <= 100; i++) {
+      const x = -HALF + (i / 100) * HALF * 2;
+      const h = i % 10 === 0 ? 0.7 : i % 5 === 0 ? 0.45 : 0.22;
+      pts.push(x, -h, 0, x, h, 0);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    tickGroup.add(new THREE.LineSegments(g, tickMat));
+    tickGroup.scale.set(1, 1, 1);
+    tickGroup.position.x = 0;
+  }
+  buildTicks();
+
+  const cursor = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), new THREE.MeshBasicMaterial({ color: 0xff5fa2 }));
+  cursor.visible = false;
+  lineGroup.add(cursor);
+  const cursorLabel = makeLabel('', { size: 0.9, color: '#ffd1e6', glow: 'rgba(255,95,162,0.9)' });
+  cursorLabel.visible = false;
+  lineGroup.add(cursorLabel);
+
+  // =====================================================================
+  //  ROOM OF ILLUSIONS (first person)
+  // =====================================================================
+  const room = new THREE.Scene();
+  room.background = new THREE.Color(0x1d0c27);
+  room.fog = new THREE.Fog(0x1d0c27, 16, 38);
+  const rcam = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 100);
+  const R = 10, H = 6, EYE = 1.6;
+  // The player rig: moves/turns/flips the body; the camera (or VR headset) sits inside it
+  const rig = new THREE.Group();
+  rig.rotation.order = 'YXZ';
+  room.add(rig);
+  const rigPivot = new THREE.Group();    // VR mouse-look pitch, pivoting at head height
+  rigPivot.position.y = EYE;
+  rig.add(rigPivot);
+  const rigInner = new THREE.Group();
+  rigInner.position.y = -EYE;
+  rigPivot.add(rigInner);
+  rigInner.add(rcam);
+  rcam.position.set(0, EYE, 0);
+
+  function canvasTex(w, h, draw) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    const t = new THREE.CanvasTexture(c);
+    t.anisotropy = 4;
+    return t;
+  }
+
+  // Floor: pink/cream checker
+  const floorTex = canvasTex(256, 256, (g, w) => {
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+      g.fillStyle = (i + j) % 2 ? '#3b1c48' : '#e9c6b5';
+      g.fillRect(i * 32, j * 32, 32, 32);
+    }
+  });
+  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+  floorTex.repeat.set(2.5, 2.5);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * R, 2 * R), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.4 }));
+  floor.rotation.x = -Math.PI / 2;
+  room.add(floor);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(2 * R, 2 * R), new THREE.MeshStandardMaterial({ color: 0x2a1236 }));
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.y = H;
+  room.add(ceil);
+
+  // Walls: soft striped wallpaper
+  const wallTex = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#7a3d6e'; g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 32) { g.fillStyle = 'rgba(255,190,150,0.10)'; g.fillRect(x, 0, 14, h); }
+  });
+  wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
+  wallTex.repeat.set(5, 1.5);
+  const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.9 });
+  [[0, -R, 0], [0, R, Math.PI], [-R, 0, Math.PI / 2], [R, 0, -Math.PI / 2]].forEach(([x, z, ry]) => {
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(2 * R, H), wallMat);
+    w.position.set(x, H / 2, z);
+    w.rotation.y = ry;
+    room.add(w);
+  });
+
+  room.add(new THREE.HemisphereLight(0xffd0b0, 0x402050, 1.0));
+  const lamp = new THREE.PointLight(0xff9a6b, 1.1, 30);
+  lamp.position.set(0, 5.2, 0);
+  room.add(lamp);
+  const lampPink = new THREE.PointLight(0xff5fa2, 0.6, 18);
+  lampPink.position.set(-7, 4, 7);
+  room.add(lampPink);
+  const lampBulb = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffd9a8 }));
+  lampBulb.position.copy(lamp.position);
+  room.add(lampBulb);
+
+  // Floating glass orbs for atmosphere
+  const orbs = [];
+  for (let i = 0; i < 6; i++) {
+    const o = new THREE.Mesh(new THREE.SphereGeometry(0.25 + Math.random() * 0.3, 20, 20),
+      new THREE.MeshStandardMaterial({ color: 0xffc2d9, transparent: true, opacity: 0.45, roughness: 0.1, metalness: 0.3 }));
+    o.position.set((Math.random() - 0.5) * 14, 3.5 + Math.random() * 2, (Math.random() - 0.5) * 14);
+    o.userData.phase = Math.random() * 6;
+    room.add(o);
+    orbs.push(o);
+  }
+
+  // ---------- Puzzle 1: anamorphic number ----------
+  // Cubes are scattered along rays from one eye point. From that spot they line up into a "3".
+  const ANA_EYE = new THREE.Vector3(-6, EYE, 6.5);
+  const ANA_DIR = new THREE.Vector3(3.5, 0.9, -11).normalize();
+  const ANA_DIST = 11;
+  const anaFrags = [];
+  {
+    const c = document.createElement('canvas');
+    const N = 56;
+    c.width = c.height = N;
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff';
+    g.font = 'bold 52px Arial, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('3', N / 2, N / 2 + 3);
+    const data = g.getImageData(0, 0, N, N).data;
+    const right = new THREE.Vector3().crossVectors(ANA_DIR, new THREE.Vector3(0, 1, 0)).normalize();
+    const up = new THREE.Vector3().crossVectors(right, ANA_DIR).normalize();
+    const center = ANA_EYE.clone().addScaledVector(ANA_DIR, ANA_DIST);
+    const GLYPH = 4.6;
+    for (let y = 0; y < N; y += 2) for (let x = 0; x < N; x += 2) {
+      if (data[(y * N + x) * 4 + 3] < 128) continue;
+      const p = center.clone()
+        .addScaledVector(right, (x / N - 0.5) * GLYPH)
+        .addScaledVector(up, -(y / N - 0.5) * GLYPH);
+      anaFrags.push({ p, base: 0.35 + Math.random() * 0.6, phase: Math.random() * 6.28, rot: new THREE.Euler(Math.random() * 3, Math.random() * 3, Math.random() * 3) });
+    }
+  }
+  const anaMat = new THREE.MeshStandardMaterial({ color: 0xffb36b, emissive: 0x552211, roughness: 0.4 });
+  const anaMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), anaMat, anaFrags.length);
+  room.add(anaMesh);
+  const anaCell = 4.6 / 56 * 2 * 1.05;
+  const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
+  let anaCollapse = 0; // 0 = scattered, 1 = all on the glyph plane
+  function updateAna(t) {
+    anaFrags.forEach((f, i) => {
+      let s = f.base + Math.sin(t * 0.6 + f.phase) * 0.04;
+      s = s + (1 - s) * anaCollapse;
+      _v.copy(ANA_EYE).lerp(f.p, s);
+      _q.setFromEuler(f.rot);
+      if (anaCollapse > 0) _q.slerp(new THREE.Quaternion(), anaCollapse);
+      const k = anaCell * s;
+      _s.set(k, k, k);
+      _m.compose(_v, _q, _s);
+      anaMesh.setMatrixAt(i, _m);
+    });
+    anaMesh.instanceMatrix.needsUpdate = true;
+  }
+  // Marker on the floor where the eye point is
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.6, 40), new THREE.MeshBasicMaterial({ color: 0xffb36b, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(ANA_EYE.x, 0.02, ANA_EYE.z);
+  room.add(ring);
+  const ringLabel = makeLabel('stand here · find the number', { size: 0.32, depthTest: true });
+  ringLabel.position.set(ANA_EYE.x, 0.35, ANA_EYE.z - 0.8);
+  room.add(ringLabel);
+
+  // ---------- Posters (puzzles 2 & 3) ----------
+  const buttons = [];
+  function makePoster(drawFn, pos, ry) {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 600;
+    const tex = new THREE.CanvasTexture(c);
+    const g = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(4.4, 5.1, 0.12), new THREE.MeshStandardMaterial({ color: 0x2b1030 }));
+    g.add(frame);
+    const art = new THREE.Mesh(new THREE.PlaneGeometry(4, 4.69), new THREE.MeshBasicMaterial({ map: tex }));
+    art.position.z = 0.07;
+    g.add(art);
+    g.position.copy(pos);
+    g.rotation.y = ry;
+    g.scale.setScalar(0.75);
+    room.add(g);
+    const redraw = solved => { drawFn(c.getContext('2d'), solved); tex.needsUpdate = true; };
+    redraw(false);
+    return { group: g, redraw };
+  }
+  function addButtons(poster, puzzle, labels, answer) {
+    labels.forEach((txt, i) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.5, 0.15), new THREE.MeshStandardMaterial({ color: 0xfff1e0, emissive: 0x000000 }));
+      b.position.set((i - 1) * 1.35, -3.05, 0.1);
+      const lbl = makeLabel(txt, { size: 0.34, color: '#2a0f2f', glow: 'rgba(0,0,0,0)', bold: true, depthTest: true });
+      lbl.position.set(0, 0, 0.22);
+      b.add(lbl);
+      b.userData = { puzzle, choice: txt, answer };
+      poster.group.add(b);
+      buttons.push(b);
+    });
+  }
+
+  // Puzzle 2: Adelson's checker shadow. A and B are painted the exact same grey.
+  const SAME = 'rgb(107,107,107)';
+  const checker = makePoster((g, solved) => {
+    g.fillStyle = '#f6e9df'; g.fillRect(0, 0, 512, 600);
+    g.fillStyle = '#2a0f2f'; g.font = 'bold 30px "Space Mono", monospace'; g.textAlign = 'center';
+    g.fillText('Which square is lighter?', 256, 52);
+    const ox = 56, oy = 90, T = 80, cx = 3.6, cy = 1.4;
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
+      const d = Math.hypot(i + 0.5 - cx, j + 0.5 - cy);
+      const f = d < 1.3 ? 107 / 160 : d < 2.6 ? 107 / 160 + (1 - 107 / 160) * (d - 1.3) / 1.3 : 1;
+      const v = Math.round(((i + j) % 2 ? 107 : 160) * f);
+      g.fillStyle = `rgb(${v},${v},${v})`;
+      g.fillRect(ox + i * T, oy + j * T, T, T);
+    }
+    // A (dark, in light) and B (light, in shadow): identical paint
+    const A = [1, 2], B = [3, 1];
+    [A, B].forEach(([i, j]) => { g.fillStyle = SAME; g.fillRect(ox + i * T, oy + j * T, T, T); });
+    // the green cylinder casting the shadow
+    const px = ox + 4.3 * T, py = oy + 0.6 * T;
+    const grad = g.createLinearGradient(px - 40, 0, px + 40, 0);
+    grad.addColorStop(0, '#2f7a3a'); grad.addColorStop(0.5, '#6fd07c'); grad.addColorStop(1, '#245c2c');
+    g.fillStyle = grad;
+    g.fillRect(px - 40, py - 70, 80, 110);
+    g.beginPath(); g.ellipse(px, py + 40, 40, 14, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#8fe39a'; g.beginPath(); g.ellipse(px, py - 70, 40, 14, 0, 0, Math.PI * 2); g.fill();
+    g.font = 'bold 34px Arial'; g.fillStyle = '#fff';
+    g.fillText('A', ox + A[0] * T + T / 2, oy + A[1] * T + T / 2 + 12);
+    g.fillText('B', ox + B[0] * T + T / 2, oy + B[1] * T + T / 2 + 12);
+    if (solved) {
+      // proof: a bridge of the same grey joining A and B
+      g.fillStyle = SAME;
+      g.fillRect(ox + A[0] * T + 25, oy + B[1] * T + 30, (B[0] - A[0]) * T, 20);
+      g.fillRect(ox + A[0] * T + 25, oy + B[1] * T + 30, 20, (A[1] - B[1]) * T);
+      g.fillStyle = '#c2185b'; g.font = 'bold 26px "Space Mono", monospace';
+      g.fillText('Same grey. Your eyes lied.', 256, 540);
+    } else {
+      g.fillStyle = '#6b4a6b'; g.font = '20px "Space Mono", monospace';
+      g.fillText('trust nothing', 256, 540);
+    }
+  }, new THREE.Vector3(R - 0.08, 3.6, -1), -Math.PI / 2);
+  addButtons(checker, 'checker', ['A', 'B', 'Same'], 'Same');
+
+  // Puzzle 3: Müller-Lyer. Both lines are the same length.
+  const muller = makePoster((g, solved) => {
+    g.fillStyle = '#f6e9df'; g.fillRect(0, 0, 512, 600);
+    g.fillStyle = '#2a0f2f'; g.font = 'bold 30px "Space Mono", monospace'; g.textAlign = 'center';
+    g.fillText('Which line is longer?', 256, 52);
+    const L = 300, x0 = 256 - L / 2, x1 = 256 + L / 2, F = 42;
+    g.strokeStyle = '#2a0f2f'; g.lineWidth = 7; g.lineCap = 'round';
+    const line = (y, outward) => {
+      g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y);
+      const dx = outward ? -F : F;
+      g.moveTo(x0, y); g.lineTo(x0 + dx, y - F); g.moveTo(x0, y); g.lineTo(x0 + dx, y + F);
+      g.moveTo(x1, y); g.lineTo(x1 - dx, y - F); g.moveTo(x1, y); g.lineTo(x1 - dx, y + F);
+      g.stroke();
+    };
+    line(200, false); // arrowheads in: looks shorter
+    line(380, true);  // fins out: looks longer
+    g.font = 'bold 22px "Space Mono", monospace'; g.fillStyle = '#6b4a6b';
+    g.fillText('top', 256, 150); g.fillText('bottom', 256, 450);
+    if (solved) {
+      g.strokeStyle = '#ff2f7d'; g.lineWidth = 3; g.setLineDash([10, 8]);
+      g.beginPath(); g.moveTo(x0, 120); g.lineTo(x0, 470); g.moveTo(x1, 120); g.lineTo(x1, 470); g.stroke();
+      g.setLineDash([]);
+      g.fillStyle = '#c2185b'; g.font = 'bold 26px "Space Mono", monospace';
+      g.fillText('Exactly equal.', 256, 540);
+    }
+  }, new THREE.Vector3(-R + 0.08, 3.6, -1.5), Math.PI / 2);
+  addButtons(muller, 'muller', ['Top', 'Bottom', 'Equal'], 'Equal');
+
+  // Puzzle 5: Hermann grid. Grey dots flicker at the crossings, but there are none.
+  const hermann = makePoster((g, solved) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, 512, 600);
+    g.fillStyle = '#2a0f2f'; g.font = 'bold 28px "Space Mono", monospace'; g.textAlign = 'center';
+    g.fillText('How many grey dots?', 256, 52);
+    g.fillStyle = '#000';
+    const S = 70, gap = 16, ox = 256 - (5 * S + 4 * gap) / 2, oy = 90;
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) g.fillRect(ox + i * (S + gap), oy + j * (S + gap), S, S);
+    if (solved) {
+      g.fillStyle = '#c2185b'; g.font = 'bold 24px "Space Mono", monospace';
+      g.fillText('Zero. Your brain made them up.', 256, 560);
+    }
+  }, new THREE.Vector3(R - 0.08, 3.6, 5.5), -Math.PI / 2);
+  addButtons(hermann, 'hermann', ['0', '9', '16'], '0');
+
+  // Puzzle 6: Kanizsa triangle. Three pac-men and three angles imply a triangle that isn't drawn.
+  const kanizsa = makePoster((g, solved) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, 512, 600);
+    g.fillStyle = '#2a0f2f'; g.font = 'bold 26px "Space Mono", monospace'; g.textAlign = 'center';
+    g.fillText('How many triangles?', 256, 52);
+    const cx = 256, cy = 320, r = 150;
+    const pts = [0, 1, 2].map(i => [cx + r * Math.sin(i * 2.094), cy - r * Math.cos(i * 2.094)]);
+    const inv = [0, 1, 2].map(i => [cx - r * 0.9 * Math.sin(i * 2.094), cy + r * 0.9 * Math.cos(i * 2.094)]);
+    g.strokeStyle = '#000'; g.lineWidth = 6;
+    for (let i = 0; i < 3; i++) {   // outline triangle corners only
+      const a = inv[i], b = inv[(i + 1) % 3], c = inv[(i + 2) % 3];
+      [b, c].forEach(q => { g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(a[0] + (q[0] - a[0]) * 0.28, a[1] + (q[1] - a[1]) * 0.28); g.stroke(); });
+    }
+    g.fillStyle = '#000';
+    pts.forEach(([x, y]) => {
+      const ang = Math.atan2(cy - y, cx - x);
+      g.beginPath(); g.moveTo(x, y); g.arc(x, y, 46, ang + 0.52, ang - 0.52 + Math.PI * 2); g.closePath(); g.fill();
+    });
+    if (solved) {
+      g.fillStyle = '#c2185b'; g.font = 'bold 24px "Space Mono", monospace';
+      g.fillText('None. Just pac-men and corners.', 256, 560);
+    }
+  }, new THREE.Vector3(5.5, 3.6, R - 0.08), Math.PI);
+  addButtons(kanizsa, 'kanizsa', ['0', '1', '2'], '0');
+
+  // Puzzle 7: afterimage. Stare at the cyan heart, then the poster goes blank and your eyes paint it red.
+  let afterStage = 'stare', afterT = 0, afterDrawAt = 0;
+  const STARE = 8;
+  const after = makePoster((g, solved) => {
+    const blank = afterStage !== 'stare';
+    g.fillStyle = blank ? '#ffffff' : '#111'; g.fillRect(0, 0, 512, 600);
+    g.textAlign = 'center';
+    g.fillStyle = blank ? '#2a0f2f' : '#fff'; g.font = 'bold 24px "Space Mono", monospace';
+    g.fillText(blank ? 'What colour is the heart now?' : 'Stare at the dot for 8 seconds', 256, 52);
+    if (!blank) {
+      g.fillStyle = '#00f0ff';
+      g.beginPath();
+      const hx = 256, hy = 300;
+      g.moveTo(hx, hy + 120);
+      g.bezierCurveTo(hx - 200, hy - 10, hx - 120, hy - 170, hx, hy - 70);
+      g.bezierCurveTo(hx + 120, hy - 170, hx + 200, hy - 10, hx, hy + 120);
+      g.fill();
+      g.fillStyle = '#333'; g.fillRect(56, 520, 400, 16);
+      g.fillStyle = '#ffb36b'; g.fillRect(56, 520, 400 * Math.min(1, afterT / STARE), 16);
+    }
+    g.fillStyle = '#000'; g.beginPath(); g.arc(256, 300, 7, 0, Math.PI * 2); g.fill();
+    if (solved) {
+      g.fillStyle = '#c2185b'; g.font = 'bold 24px "Space Mono", monospace';
+      g.fillText('Red: your tired eyes did that.', 256, 560);
+    }
+  }, new THREE.Vector3(-5.5, 3.6, R - 0.08), Math.PI);
+  addButtons(after, 'after', ['Cyan', 'Red', 'Green'], 'Red');
+  const afterArt = after.group.children[1];
+
+  // Puzzle 8: forced perspective. From the marked spot two orbs look the same size.
+  const ORB_SPOT = new THREE.Vector3(3, EYE, 5);
+  const orbNear = new THREE.Mesh(new THREE.SphereGeometry(0.22, 32, 32), new THREE.MeshStandardMaterial({ color: 0xff5fa2, emissive: 0x000000, roughness: 0.3 }));
+  orbNear.position.set(2.56, EYE, 2.5);
+  const orbFar = new THREE.Mesh(new THREE.SphereGeometry(0.22 * 9 / 2.5, 32, 32), new THREE.MeshStandardMaterial({ color: 0x5fc8ff, emissive: 0x000000, roughness: 0.3 }));
+  orbFar.position.set(4.59, EYE, -4);
+  orbNear.userData = { puzzle: 'orbs', choice: 'near', answer: 'far' };
+  orbFar.userData = { puzzle: 'orbs', choice: 'far', answer: 'far' };
+  room.add(orbNear, orbFar);
+  buttons.push(orbNear, orbFar);
+  const orbRing = ring.clone();
+  orbRing.material = ring.material.clone();
+  orbRing.material.color.set(0x5fc8ff);
+  orbRing.position.set(ORB_SPOT.x, 0.02, ORB_SPOT.z);
+  room.add(orbRing);
+  const orbLabel = makeLabel('stand here · click the bigger orb', { size: 0.32, depthTest: true });
+  orbLabel.position.set(ORB_SPOT.x, 0.35, ORB_SPOT.z - 0.8);
+  room.add(orbLabel);
+
+  // Puzzle 9: the upside-down room. A lever flips the world; only then does the ceiling show the code.
+  const leverBase = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.9, 0.15), new THREE.MeshStandardMaterial({ color: 0x2b1030 }));
+  leverBase.position.set(4, 1.5, -R + 0.08);
+  room.add(leverBase);
+  const lever = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.7, 0.14), new THREE.MeshStandardMaterial({ color: 0xffc27a, emissive: 0x000000, metalness: 0.6, roughness: 0.3 }));
+  lever.geometry.translate(0, 0.35, 0);
+  lever.position.set(4, 1.5, -R + 0.25);
+  lever.rotation.x = 0.5;
+  lever.userData = { puzzle: 'flip' };
+  room.add(lever);
+  buttons.push(lever);
+  const leverLabel = makeLabel('turn the world over', { size: 0.2, depthTest: true });
+  leverLabel.position.set(4, 2.35, -R + 0.2);
+  room.add(leverLabel);
+  const ceilingCode = makeLabel('3  1  4', { size: 2.2, bold: true, color: '#ffe08a', glow: 'rgba(255,200,100,1)' });
+  ceilingCode.position.set(0, H - 0.4, 0);
+  ceilingCode.material.opacity = 0;
+  room.add(ceilingCode);
+  let flip = 0, flipTarget = 0, flipUntil = 0;
+
+  // Keypad by the door
+  const KEY_POS = new THREE.Vector3(-4, 1.8, -R + 0.08);
+  const keyPanel = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.1, 0.1), new THREE.MeshStandardMaterial({ color: 0x2b1030 }));
+  keyPanel.position.copy(KEY_POS);
+  room.add(keyPanel);
+  const keyDisplay = makeLabel('_ _ _', { size: 0.32, depthTest: true, color: '#9fffb0', glow: 'rgba(80,255,120,.8)' });
+  keyDisplay.position.set(KEY_POS.x, KEY_POS.y + 0.78, KEY_POS.z + 0.12);
+  room.add(keyDisplay);
+  ['1','2','3','4','5','6','7','8','9','C','0','↵'].forEach((k, i) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.3, 0.1), new THREE.MeshStandardMaterial({ color: 0xfff1e0, emissive: 0x000000 }));
+    b.position.set(KEY_POS.x + (i % 3 - 1) * 0.44, KEY_POS.y + 0.35 - Math.floor(i / 3) * 0.38, KEY_POS.z + 0.1);
+    const lbl = makeLabel(k, { size: 0.22, color: '#2a0f2f', glow: 'rgba(0,0,0,0)', bold: true, depthTest: true });
+    lbl.position.set(0, 0, 0.12);
+    b.add(lbl);
+    b.userData = { puzzle: 'keypad', key: k };
+    room.add(b);
+    buttons.push(b);
+  });
+  let codeEntry = '';
+  function showCode() { keyDisplay.userData.set((codeEntry + '___').slice(0, 3).split('').join(' ')); }
+
+  // ---------- From "The Secret Number" (Igor Teper's story / Colin Levy's film) ----------
+  // Puzzle 10: Ersheim's chalkboard. He counts with an extra word between three and four.
+  const chalk = makePoster((g, solved) => {
+    g.fillStyle = '#1f3a2e'; g.fillRect(0, 0, 512, 600);
+    // equations scrawled all over, like Ersheim's walls
+    g.fillStyle = 'rgba(255,255,255,0.13)'; g.font = '15px "Space Mono", monospace'; g.textAlign = 'left';
+    const scrawl = ['3 < x < 4', 'x ∈ ℤ', 'ζ(s) = Σ n⁻ˢ', '∀n: n+1 > n', '3 + 1 ≠ 4 ?', '∃ b : 3 < b < 4', 'b² = ?', 'mod 7', 'f(3)=f(4)', '∫ dx', 'lim n→∞', 'P ≠ NP?'];
+    for (let i = 0; i < 46; i++) g.fillText(scrawl[i % scrawl.length], (i * 97) % 470, 20 + ((i * 53) % 580));
+    g.fillStyle = '#f2efe6'; g.textAlign = 'center';
+    g.font = 'bold 24px "Space Mono", monospace';
+    g.fillText('Prof. Ersheim counts:', 256, 60);
+    g.font = 'bold 64px "Archivo Black", sans-serif';
+    g.fillText(solved ? '1 2 3' : '1  2  3', 256, 200);
+    g.fillStyle = solved ? '#ffb36b' : '#f2efe6';
+    g.fillText(solved ? 'bleem' : '___', 256, 290);
+    g.fillStyle = '#f2efe6';
+    g.fillText('4  5', 256, 380);
+    g.font = '20px "Space Mono", monospace';
+    g.fillText(solved ? 'He insists everyone else skips it.' : 'What does he say after three?', 256, 470);
+    if (solved) { g.font = '16px "Space Mono", monospace'; g.fillText('— The Secret Number', 256, 510); }
+  }, new THREE.Vector3(-R + 0.08, 3.6, 5.5), Math.PI / 2);
+  addButtons(chalk, 'count', ['3.5', 'Bleem', 'π'], 'Bleem');
+
+  // Puzzle 11: the jelly beans. Try to separate out "bleem" of them.
+  const TABLE = new THREE.Vector3(2.2, 0, -5.6);
+  const table = new THREE.Group();
+  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 1), new THREE.MeshStandardMaterial({ color: 0x4a2340 }));
+  tableTop.position.y = 0.9;
+  table.add(tableTop);
+  [[-0.8, -0.4], [0.8, -0.4], [-0.8, 0.4], [0.8, 0.4]].forEach(([x, z]) => {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.9, 0.07), new THREE.MeshStandardMaterial({ color: 0x2b1030 }));
+    leg.position.set(x, 0.45, z);
+    table.add(leg);
+  });
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.03, 32), new THREE.MeshStandardMaterial({ color: 0xfff1e0 }));
+  plate.position.set(-0.5, 0.955, 0);
+  table.add(plate);
+  table.position.copy(TABLE);
+  room.add(table);
+  const plateLabel = makeLabel('0', { size: 0.3, bold: true, depthTest: true });
+  plateLabel.position.set(TABLE.x - 0.5, 1.35, TABLE.z);
+  room.add(plateLabel);
+  const beansLabel = makeLabel('separate out bleem jelly beans', { size: 0.16, depthTest: true });
+  beansLabel.position.set(TABLE.x, 1.6, TABLE.z);
+  room.add(beansLabel);
+  const BEAN_COLORS = [0xff4d6d, 0xffd23f, 0x3ddc97, 0x5fc8ff, 0xb388ff, 0xff8c42, 0xffffff];
+  const beans = BEAN_COLORS.map((col, i) => {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 10), new THREE.MeshStandardMaterial({ color: col, emissive: 0x000000, roughness: 0.25 }));
+    b.scale.set(1.5, 0.9, 1);
+    b.userData = { puzzle: 'bean', home: new THREE.Vector3(TABLE.x + 0.2 + (i % 4) * 0.18, 0.99, TABLE.z - 0.15 + Math.floor(i / 4) * 0.25) };
+    b.position.copy(b.userData.home);
+    b.rotation.y = i;
+    room.add(b);
+    buttons.push(b);
+    return b;
+  });
+  let beansOnPlate = 0;
+  function resetBeans() {
+    beansOnPlate = 0;
+    beans.forEach(b => { b.position.copy(b.userData.home); b.userData.onPlate = false; });
+    plateLabel.userData.set('0');
+  }
+
+  // Puzzle 12: the clipping about Laszlo Bleem, and his vanished paper
+  let paperRead = false;
+  const paper = makePoster((g) => {
+    g.fillStyle = '#efe6d2'; g.fillRect(0, 0, 512, 600);
+    g.fillStyle = '#222'; g.textAlign = 'center';
+    if (!paperRead) {
+      g.font = 'bold 22px Georgia, serif';
+      g.fillText('THE DAILY OBSERVER', 256, 44);
+      g.fillRect(30, 56, 452, 3);
+      g.font = 'bold 34px Georgia, serif';
+      g.fillText('MATHEMATICIAN', 256, 110);
+      g.fillText('DIES IN CRASH', 256, 150);
+      g.font = 'italic 20px Georgia, serif';
+      g.fillText('Laszlo Bleem’s home and files', 256, 190);
+      g.fillText('destroyed in fire the same night', 256, 216);
+      g.font = '15px Georgia, serif'; g.textAlign = 'left';
+      const lines = ['Police say the cause of the blaze is', 'unknown. Colleagues say Bleem had', 'recently published a short paper about', '"an unknown integer," which nobody', 'has been able to find a copy of.', '', 'Professor Ersheim, a former colleague,', 'told reporters it was "not an accident."'];
+      lines.forEach((l, i) => g.fillText(l, 50, 260 + i * 24));
+      g.textAlign = 'center'; g.fillStyle = '#7a2440'; g.font = 'bold 18px "Space Mono", monospace';
+      g.fillText('click to look underneath', 256, 540);
+    } else {
+      g.font = 'bold 22px Georgia, serif';
+      g.fillText('On an Unknown Integer', 256, 60);
+      g.fillText('Between Three and Four', 256, 90);
+      g.font = 'italic 16px Georgia, serif';
+      g.fillText('L. Bleem', 256, 118);
+      g.fillStyle = '#111';
+      for (let i = 0; i < 14; i++) {
+        const w = 300 + ((i * 71) % 120);
+        g.fillRect(256 - w / 2, 150 + i * 24, w, 14);
+      }
+      g.fillStyle = '#7a2440'; g.font = 'bold 20px "Space Mono", monospace';
+      g.fillText('Every line has been redacted.', 256, 520);
+      g.fillText('Someone got here first.', 256, 548);
+    }
+  }, new THREE.Vector3(R - 0.08, 3.0, -6.5), -Math.PI / 2);
+  const paperArt = paper.group.children[1];
+  paperArt.userData = { puzzle: 'paper' };
+  buttons.push(paperArt);
+
+
+  // Puzzle 4: impossible triangle (Penrose). Three beams that only close from one angle.
+  // Rotate the pedestal until the triangle looks impossible.
+  // An open path of three beams (x, then z, then y). Its two loose ends line up along the
+  // (1,1,1) diagonal, so seen exactly down that diagonal it looks like a closed triangle.
+  const penrose = new THREE.Group();
+  const penMat = new THREE.MeshStandardMaterial({ color: 0x9fd6ff, roughness: 0.35 });
+  {
+    const L = 1.0, Tk = 0.2;
+    const P = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(L, 0, 0), new THREE.Vector3(L, 0, L), new THREE.Vector3(L, L, L)];
+    const centroid = new THREE.Vector3(L * 0.5, L * 0.5, L * 0.5);
+    const inner = new THREE.Group();
+    for (let i = 0; i < 3; i++) {
+      const a = P[i], b = P[i + 1];
+      const size = new THREE.Vector3().subVectors(b, a);
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(size.x) + Tk, Math.abs(size.y) + Tk, Math.abs(size.z) + Tk), penMat);
+      beam.position.addVectors(a, b).multiplyScalar(0.5).sub(centroid);
+      inner.add(beam);
+    }
+    // turn the magic diagonal so it points horizontally
+    inner.quaternion.setFromUnitVectors(new THREE.Vector3(1, 1, 1).normalize(), new THREE.Vector3(0, 0, 1));
+    penrose.add(inner);
+  }
+  const pedestal = new THREE.Group();
+  const pedBase = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1, 0.7, 32), new THREE.MeshStandardMaterial({ color: 0x2b1030 }));
+  pedBase.position.y = 0.35;
+  pedestal.add(pedBase);
+  const spinner = new THREE.Group();
+  spinner.position.y = EYE;
+  spinner.add(penrose);
+  pedestal.add(spinner);
+  pedestal.position.set(6.2, 0, 2);
+  room.add(pedestal);
+  const spinBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.12, 24), new THREE.MeshStandardMaterial({ color: 0xff5fa2, emissive: 0x000000 }));
+  spinBtn.rotation.x = Math.PI / 2;
+  spinBtn.position.set(0, 0.4, 0.95);
+  spinBtn.userData = { puzzle: 'spin' };
+  pedestal.add(spinBtn);
+  buttons.push(spinBtn);
+  const penLabel = makeLabel('click to turn it · look until it closes', { size: 0.13, depthTest: true });
+  penLabel.position.set(0, 0.85, 1.05);
+  pedestal.add(penLabel);
+  let spinTarget = 0;
+
+  // ---------- Doors (the endless door) ----------
+  const portalMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `
+      varying vec2 vUv; uniform float uTime;
+      void main(){
+        vec3 c = mix(vec3(1.0,0.62,0.32), vec3(0.25,0.08,0.35), smoothstep(0.2, 1.0, vUv.y));
+        vec2 p = vUv - vec2(0.5, 0.42);
+        p.x *= 0.6;
+        float d = length(p);
+        float band = step(0.5, fract(vUv.y * 22.0 + uTime * 0.2));
+        float sunMask = (1.0 - smoothstep(0.16, 0.17, d)) * (vUv.y > 0.42 ? 1.0 : band);
+        c = mix(c, vec3(1.0,0.82,0.45), sunMask);
+        if (vUv.y < 0.3) c = mix(vec3(0.18,0.08,0.32), c, 0.25 + 0.1 * sin(vUv.x * 40.0 + uTime));
+        gl_FragColor = vec4(c, 1.0);
+      }`
+  });
+  const doors = [];
+  function makeDoor(z, ry) {
+    const g = new THREE.Group();
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x2b1030 });
+    const W = 2.4, DH = 4;
+    const left = new THREE.Mesh(new THREE.BoxGeometry(0.3, DH, 0.4), frameMat); left.position.set(-W / 2 - 0.15, DH / 2, 0);
+    const right = left.clone(); right.position.x = W / 2 + 0.15;
+    const top = new THREE.Mesh(new THREE.BoxGeometry(W + 0.6, 0.3, 0.4), frameMat); top.position.set(0, DH + 0.15, 0);
+    const portal = new THREE.Mesh(new THREE.PlaneGeometry(W, DH), portalMat); portal.position.set(0, DH / 2, 0.02);
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(W, DH, 0.1), new THREE.MeshStandardMaterial({ color: 0x5b2d4a, roughness: 0.6 }));
+    panel.position.set(0, DH / 2, 0.08);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 12), new THREE.MeshStandardMaterial({ color: 0xffc27a, metalness: 0.8, roughness: 0.2 }));
+    knob.position.set(W / 2 - 0.3, DH / 2, 0.1);
+    panel.add(knob);
+    const sign = makeLabel('EXIT', { size: 0.6, bold: true, depthTest: true });
+    sign.position.set(0, DH + 0.75, 0.3);
+    g.add(left, right, top, portal, panel, sign);
+    g.position.set(0, 0, z);
+    g.rotation.y = ry;
+    room.add(g);
+    const d = { group: g, panel, sign };
+    doors.push(d);
+    return d;
+  }
+  makeDoor(-R + 0.2, 0);
+  makeDoor(R - 0.2, Math.PI);
+
+  // ---------- Room state ----------
+  const player = { pos: new THREE.Vector3(), yaw: 0, pitch: 0 };
+  const keys = {};
+  let locked = false;
+  let solved = {};
+  let loops = 0;
+  let lockedNagAt = 0;
+  const GLYPH_OF = { ana: '3', checker: '?', muller: '4' };
+  const TASKS = [
+    ['ana', 'Find the hidden number'],
+    ['checker', 'Which square is lighter?'],
+    ['muller', 'Which line is longer?'],
+    ['spin', 'Make the triangle impossible'],
+    ['hermann', 'Count the grey dots'],
+    ['kanizsa', 'Count the triangles'],
+    ['after', 'Stare at the heart'],
+    ['orbs', 'Which orb is bigger?'],
+    ['code', 'Find the code · use the keypad'],
+    ['count', 'How does Ersheim count?'],
+    ['beans', 'Separate the bleem jelly beans'],
+    ['paper', 'Read about Laszlo Bleem'],
+    ['door', 'Leave through the door']
+  ];
+  const PUZZLES = TASKS.map(t => t[0]).filter(k => k !== 'door');
+
+  function doorsOpen() { return PUZZLES.every(k => solved[k]); }
+  function renderRoomHud() {
+    $('roomHud').innerHTML = TASKS.map(([k, label]) => {
+      const locked = k === 'door' && !doorsOpen();
+      return `<div class="${solved[k] ? 'done' : ''}">${solved[k] ? '✓' : locked ? '🔒' : '○'} ${label}</div>`;
+    }).join('');
+    const slot = k => solved[k] ? `<span class="got">${GLYPH_OF[k]}</span>` : `<span class="empty">_</span>`;
+    const count = PUZZLES.filter(k => solved[k]).length;
+    $('glyphs').innerHTML = `${slot('ana')} ${slot('checker')} ${slot('muller')}<div style="font:12px 'Space Mono',monospace;letter-spacing:2px;opacity:.7">${count} / ${PUZZLES.length} illusions</div>`;
+    doors.forEach(d => { d.panel.visible = !doorsOpen(); });
+  }
+
+  function solve(k, text) {
+    if (solved[k]) return;
+    solved[k] = true;
+    setMsg(text);
+    if (typeof drawVrPanel === 'function') drawVrPanel();
+    renderRoomHud();
+    if (doorsOpen()) setTimeout(() => setMsg('Click. Somewhere, a door unlocks.'), 2600);
+  }
+
+  function resetRoom() {
+    solved = {};
+    loops = 0;
+    player.pos.set(0, EYE, 3);
+    player.yaw = Math.PI * 0.75; // start looking toward the scattered cubes
+    player.pitch = 0;
+    anaCollapse = 0;
+    anaMat.color.set(0xffb36b);
+    checker.redraw(false);
+    muller.redraw(false);
+    spinner.rotation.y = Math.PI / 2; // magic diagonal starts pointing at the wall
+    spinTarget = Math.PI / 2;
+    penMat.color.set(0x9fd6ff);
+    doors.forEach(d => d.sign.userData.set('EXIT'));
+    hermann.redraw(false);
+    kanizsa.redraw(false);
+    afterStage = 'stare'; afterT = 0;
+    after.redraw(false);
+    orbNear.material.color.set(0xff5fa2); orbFar.material.color.set(0x5fc8ff);
+    flip = flipTarget = 0;
+    codeEntry = ''; showCode();
+    chalk.redraw(false);
+    resetBeans();
+    paperRead = false; paper.redraw();
+    renderRoomHud();
+  }
+
+  // ---------- Room input ----------
+  addEventListener('keydown', e => { keys[e.code] = true; });
+  addEventListener('keyup', e => { keys[e.code] = false; });
+  addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+  document.addEventListener('pointerlockchange', () => {
+    locked = document.pointerLockElement === renderer.domElement;
+    if (state === 'room' && !vr) $('lockHint').classList.toggle('hidden', locked);
+  });
+  const canLook = () => state === 'room' || (vr && state === 'play');
+  document.addEventListener('mousemove', e => {
+    if (!locked || !canLook()) return;
+    player.yaw -= e.movementX * 0.0022;
+    player.pitch = THREE.MathUtils.clamp(player.pitch - e.movementY * 0.0022, -1.45, 1.45);
+  });
+  // Drag-to-look fallback when pointer lock isn't available
+  let drag = null;
+  let dragMoved = 0;
+  addEventListener('pointerdown', e => { if (canLook() && !locked) { drag = { x: e.clientX, y: e.clientY }; dragMoved = 0; } });
+  addEventListener('pointerup', e => {
+    // In VR a click (not a drag) interacts with what you look at
+    if (vr && drag && dragMoved < 6 && e.target === renderer.domElement) gazeInteract();
+    drag = null;
+  });
+  addEventListener('pointermove', e => {
+    if (!drag || locked || !canLook()) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    dragMoved += Math.abs(dx) + Math.abs(dy);
+    player.yaw -= dx * 0.004;
+    player.pitch = THREE.MathUtils.clamp(player.pitch - dy * 0.004, -1.45, 1.45);
+    drag = { x: e.clientX, y: e.clientY };
+  });
+  $('lockHint').addEventListener('click', () => {
+    renderer.domElement.requestPointerLock && renderer.domElement.requestPointerLock();
+    $('lockHint').classList.add('hidden');
+  });
+
+  const rray = new THREE.Raycaster();
+  const CENTER = new THREE.Vector2(0, 0);
+  let hovered = null;
+  const _tm = new THREE.Matrix4();
+  function rayFromController(c, raycaster) {
+    _tm.identity().extractRotation(c.matrixWorld);
+    raycaster.ray.origin.setFromMatrixPosition(c.matrixWorld);
+    raycaster.ray.direction.set(0, 0, -1).applyMatrix4(_tm);
+  }
+  function updateHover(fromController) {
+    let hit = null;
+    if (vr) {
+      const list = fromController ? [fromController] : controllers;
+      for (const c of list) {
+        if (!c.userData.source) continue;
+        rayFromController(c, rray);
+        rray.far = 11;
+        const h = rray.intersectObjects(buttons, false)[0];
+        c.userData.line.scale.z = h ? h.distance : 5;
+        if (h && !hit) hit = h;
+      }
+    } else {
+      rray.setFromCamera(CENTER, rcam);
+      rray.far = 11;
+      hit = rray.intersectObjects(buttons, false)[0];
+    }
+    const next = hit ? hit.object : null;
+    if (hovered !== next) {
+      if (hovered && hovered.material.emissive) hovered.material.emissive.set(0x000000);
+      hovered = next;
+      if (hovered && hovered.material.emissive) hovered.material.emissive.set(0x552233);
+    }
+    $('crosshair').classList.toggle('hot', !!hovered);
+  }
+  const WRONG = ['Look again. Your eyes are lying.', 'Nope. Paradise plays tricks on you.', 'Not quite. Trust nothing you see.'];
+  function interact() {
+    if (!hovered) return;
+    const b = hovered.userData;
+    if (b.puzzle === 'spin') {
+      spinTarget += Math.PI / 12;
+      return;
+    }
+    if (b.puzzle === 'flip') {
+      if (flipTarget === 1) return;
+      flipTarget = 1;
+      flipUntil = t + 9;
+      lever.rotation.x = -0.5;
+      setMsg('The room turns over…');
+      return;
+    }
+    const pressed = hovered;
+    if (b.puzzle === 'bean') {
+      if (solved.beans || hovered.userData.onPlate) return;
+      hovered.userData.onPlate = true;
+      beansOnPlate++;
+      const a = beansOnPlate * 1.9;
+      hovered.position.set(TABLE.x - 0.5 + Math.cos(a) * 0.12, 0.985, TABLE.z + Math.sin(a) * 0.12);
+      if (beansOnPlate < 3) { plateLabel.userData.set(String(beansOnPlate)); return; }
+      if (beansOnPlate === 3) { plateLabel.userData.set('3'); setMsg('Three. Now just a little more, and you’ll have bleem.'); return; }
+      plateLabel.userData.set('bleem?');
+      setTimeout(() => {
+        plateLabel.userData.set('4');
+        solve('beans', 'You reached for bleem and got four. Something stops you — though Dr. Tomlin insists nothing is.');
+      }, 700);
+      return;
+    }
+    if (b.puzzle === 'paper') {
+      if (solved.paper) return;
+      paperRead = true;
+      paper.redraw();
+      solve('paper', 'Laszlo Bleem found the number. Then his paper vanished.');
+      return;
+    }
+    if (b.puzzle === 'keypad') {
+      pressed.scale.set(1, 1, 0.4);
+      setTimeout(() => pressed.scale.set(1, 1, 1), 120);
+      if (solved.code) return;
+      if (b.key === 'C') codeEntry = '';
+      else if (b.key === '↵') {
+        if (codeEntry === '314') {
+          keyDisplay.userData.set('OPEN');
+          solve('code', '3.14 — π. A number between 3 and 4… or is it?');
+        } else {
+          setMsg(codeEntry.length ? 'Wrong code. The answer is above you — from the other side.' : 'Type a code first.');
+          codeEntry = '';
+        }
+      } else if (codeEntry.length < 3) codeEntry += b.key;
+      if (!solved.code) showCode();
+      return;
+    }
+    if (solved[b.puzzle]) return;
+    if (b.puzzle === 'after' && afterStage === 'stare') { setMsg('Stare at the dot first. Really stare.'); return; }
+    if (b.puzzle !== 'orbs') {
+      pressed.scale.set(1, 1, 0.5);
+      setTimeout(() => pressed.scale.set(1, 1, 1), 150);
+    }
+    if (b.choice === b.answer) {
+      if (b.puzzle === 'count') { chalk.redraw(true); solve('count', '“One, two, three, bleem, four.” Ersheim swears everyone else skips it.'); }
+      if (b.puzzle === 'hermann') { hermann.redraw(true); solve('hermann', 'There are no grey dots. Never were.'); }
+      if (b.puzzle === 'kanizsa') { kanizsa.redraw(true); solve('kanizsa', 'No triangles at all. Your mind drew the edges.'); }
+      if (b.puzzle === 'after') { after.redraw(true); solve('after', 'Cyan in, red out. Your eyes keep a negative of the world.'); }
+      if (b.puzzle === 'orbs') { orbNear.material.color.set(0xffe08a); orbFar.material.color.set(0xffe08a); solve('orbs', 'The far orb is four times bigger. Distance lies.'); }
+      if (b.puzzle === 'checker') { checker.redraw(true); solve('checker', 'A and B were the same grey all along. You found the  ?'); }
+      if (b.puzzle === 'muller') { muller.redraw(true); solve('muller', 'Both lines were equal. You found the  4'); }
+    } else {
+      setMsg(WRONG[Math.floor(Math.random() * WRONG.length)]);
+    }
+  }
+
+  const _dir = new THREE.Vector3();
+  const head = new THREE.Vector3(), prevHead = new THREE.Vector3();
+  let turnHeld = false;
+  // Head position/direction from the mouse camera or, in VR, the headset pose
+  function camPose(cam, pos, dir) {
+    if (vr) {
+      const xc = renderer.xr.getCamera(cam);
+      if (pos) pos.setFromMatrixPosition(xc.matrixWorld);
+      if (dir) dir.set(0, 0, -1).transformDirection(xc.matrixWorld);
+    } else {
+      if (pos) cam.getWorldPosition(pos);
+      if (dir) cam.getWorldDirection(dir);
+    }
+  }
+  function applyRig(bob = 0) {
+    rig.position.set(player.pos.x, flip * H, player.pos.z);
+    rig.rotation.set(0, player.yaw, flip * Math.PI);
+    rigPivot.rotation.x = vr ? player.pitch : 0;
+    if (!vr) {
+      rcam.position.set(0, EYE + bob, 0);
+      rcam.rotation.set(player.pitch, 0, 0);
+    }
+    rig.updateMatrixWorld(true);
+    camPose(rcam, head, null);
+  }
+  function stickInput() {
+    let mx = 0, mz = 0, turn = 0;
+    controllers.forEach(c => {
+      const src = c.userData.source, gp = src && src.gamepad;
+      if (!gp) return;
+      const x = gp.axes[2] || 0, y = gp.axes[3] || 0;
+      if (src.handedness === 'right') turn += x; else { mx += x; mz += y; }
+    });
+    return { mx, mz, turn };
+  }
+  function updateRoom(dt, t) {
+    // Facing direction (flat) from the camera / headset
+    camPose(rcam, null, _dir);
+    const fwd = new THREE.Vector3(_dir.x, 0, _dir.z);
+    if (fwd.lengthSq() < 1e-4) fwd.set(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+    fwd.normalize();
+    const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+    const mv = new THREE.Vector3();
+    if (vr) {
+      const st = stickInput();
+      if (keys.KeyW) st.mz -= 1;
+      if (keys.KeyS) st.mz += 1;
+      if (keys.KeyD) st.mx += 1;
+      if (keys.KeyA) st.mx -= 1;
+      if (Math.abs(st.mx) > 0.15) mv.addScaledVector(right, st.mx);
+      if (Math.abs(st.mz) > 0.15) mv.addScaledVector(fwd, -st.mz);
+      if (Math.abs(st.turn) > 0.7 && !turnHeld) { player.yaw -= Math.sign(st.turn) * Math.PI / 6; turnHeld = true; }
+      if (Math.abs(st.turn) < 0.3) turnHeld = false;
+    } else {
+      const f = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+      const r = new THREE.Vector3(-f.z, 0, f.x);
+      if (keys.KeyW || keys.ArrowUp) mv.add(f);
+      if (keys.KeyS || keys.ArrowDown) mv.sub(f);
+      if (keys.KeyD || keys.ArrowRight) mv.add(r);
+      if (keys.KeyA || keys.ArrowLeft) mv.sub(r);
+    }
+    const open = doorsOpen();
+    if (mv.lengthSq() > 0) {
+      if (mv.lengthSq() > 1) mv.normalize();
+      mv.multiplyScalar((vr ? 2.5 : 4) * dt);
+      let nx = player.pos.x + mv.x, nz = player.pos.z + mv.z;
+      const inDoor = Math.abs(nx) < 0.9;
+      nx = THREE.MathUtils.clamp(nx, -R + 0.4, R - 0.4);
+      const lim = open && inDoor ? R + 1 : R - 0.5;
+      nz = THREE.MathUtils.clamp(nz, -lim, lim);
+      const pd = Math.hypot(nx - pedestal.position.x, nz - pedestal.position.z);
+      if (Math.abs(nx - TABLE.x) < 1.25 && Math.abs(nz - TABLE.z) < 0.85) { nx = player.pos.x; nz = player.pos.z; }
+      if (pd < 1.3) { nx = player.pos.x; nz = player.pos.z; }
+      if (!open && inDoor && Math.abs(nz) > R - 1.2 && t - lockedNagAt > 4) {
+        lockedNagAt = t;
+        setMsg('Locked. The room still has illusions to show you.');
+      }
+      player.pos.x = nx; player.pos.z = nz;
+    }
+
+    // The upside-down room
+    if (flipTarget === 1 && t > flipUntil) { flipTarget = 0; lever.rotation.x = 0.5; }
+    flip += (flipTarget - flip) * Math.min(1, dt * 2.5);
+    applyRig(mv.lengthSq() > 0 ? Math.sin(t * 10) * 0.03 : 0);
+    ceilingCode.material.opacity = Math.max(0, (flip - 0.7) / 0.3);
+    ceilingCode.visible = !solved.code;
+
+    // The endless door: judged by where your head goes, and which way it was moving
+    if (open && Math.abs(head.x) < 1.1 && Math.abs(head.z) > R - 0.1) {
+      const delta = head.clone().sub(prevHead);
+      const backwards = delta.dot(fwd) < 0;
+      if (backwards) { solved.door = true; renderRoomHud(); enterFinale(); return; }
+      loops++;
+      const target = head.z < 0 ? R - 0.7 : -R + 0.7;
+      player.pos.z += target - head.z;
+      applyRig();
+      const lines = ['…you walked right back into the same room.', 'Again? The room goes on forever.', 'The other side is behind you.'];
+      setMsg(lines[Math.min(loops - 1, 2)]);
+      if (loops >= 2) doors.forEach(d => d.sign.userData.set('THE OTHER SIDE IS BEHIND YOU'));
+    }
+    prevHead.copy(head);
+    camPose(rcam, null, _dir);
+
+    // Afterimage stare timer
+    if (afterStage === 'stare') {
+      rray.set(head, _dir);
+      rray.far = 9;
+      const staring = rray.intersectObject(afterArt)[0];
+      afterT = staring ? afterT + dt : Math.max(0, afterT - dt * 2);
+      if (afterT >= STARE) { afterStage = 'blank'; after.redraw(false); setMsg('Now look at the poster. What colour is the heart?'); }
+      else if (t - afterDrawAt > 0.25) { afterDrawAt = t; after.redraw(false); }
+    }
+    orbRing.material.opacity = solved.orbs ? 0.2 : 0.55 + Math.sin(t * 3 + 1) * 0.25;
+    orbLabel.visible = !solved.orbs;
+
+    // Anamorphic check: standing on the ring and facing the right way
+    if (!solved.ana) {
+      const close = Math.hypot(head.x - ANA_EYE.x, head.z - ANA_EYE.z) < 0.7;
+      if (close && _dir.dot(ANA_DIR) > 0.985) {
+        solve('ana', 'From exactly the right spot, the chaos becomes a  3');
+        anaMat.color.set(0xffe08a);
+      }
+    } else if (anaCollapse < 1) {
+      anaCollapse = Math.min(1, anaCollapse + dt * 0.5);
+    }
+    updateAna(t);
+    ring.material.opacity = solved.ana ? 0.2 : 0.55 + Math.sin(t * 3) * 0.25;
+
+    // Penrose: solved when you look straight down the hidden diagonal
+    spinner.rotation.y += (spinTarget - spinner.rotation.y) * Math.min(1, dt * 6);
+    if (!solved.spin && Math.abs(spinTarget - spinner.rotation.y) < 0.02) {
+      const diag = new THREE.Vector3(Math.sin(spinner.rotation.y), 0, Math.cos(spinner.rotation.y));
+      const toEye = new THREE.Vector3(head.x - pedestal.position.x, head.y - EYE, head.z - pedestal.position.z);
+      const dist = toEye.length();
+      const looking = _dir.dot(toEye.clone().normalize().negate()) > 0.95;
+      if (dist > 2 && looking && toEye.normalize().dot(diag) > 0.965) {
+        // snap exactly onto the line of sight so the ends really meet
+        const want = Math.atan2(toEye.x, toEye.z);
+        let delta = want - spinner.rotation.y;
+        delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+        spinTarget = spinner.rotation.y + delta;
+        solve('spin', 'An impossible triangle. It closes — and it never could.');
+        penMat.color.set(0xffe08a);
+      }
+    }
+    penLabel.visible = !solved.spin;
+
+    orbs.forEach(o => { o.position.y += Math.sin(t + o.userData.phase) * 0.003; });
+    portalMat.uniforms.uTime.value = t;
+    updateHover();
+  }
+
+
+  // =====================================================================
+  //  VR (WebXR)
+  // =====================================================================
+  for (let i = 0; i < 2; i++) {
+    const c = renderer.xr.getController(i);
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
+    const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xff8fc0 }));
+    line.scale.z = 5;
+    c.add(line);
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.12), new THREE.MeshBasicMaterial({ color: 0xffe0c0 }));
+    c.add(tip);
+    c.userData.line = line;
+    c.addEventListener('connected', e => { c.userData.source = e.data; });
+    c.addEventListener('disconnected', () => { c.userData.source = null; });
+    c.addEventListener('select', () => onVrSelect(c));
+    controllers.push(c);
+  }
+  // Gaze: in VR you can also look at something and press Space / Enter / F or click
+  const reticle = new THREE.Mesh(new THREE.RingGeometry(0.012, 0.02, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, opacity: 0.85 }));
+  reticle.renderOrder = 31;
+  reticle.visible = false;
+  const _gp = new THREE.Vector3(), _gd = new THREE.Vector3();
+  function gazeRay(raycaster) {
+    camPose(state === 'room' ? rcam : camera, _gp, _gd);
+    raycaster.set(_gp, _gd);
+  }
+  function gazeHit() {
+    if (state === 'room') {
+      gazeRay(rray);
+      rray.far = 11;
+      return rray.intersectObjects(buttons, false)[0] || null;
+    }
+    if (state === 'play') {
+      gazeRay(ray);
+      return ray.intersectObject(hitbox)[0] || null;
+    }
+    return null;
+  }
+  function updateReticle() {
+    if (!vr || (state !== 'room' && state !== 'play')) { reticle.visible = false; return; }
+    const h = gazeHit();
+    reticle.visible = true;
+    const dist = h ? Math.max(0.3, h.distance - 0.02) : 2;
+    reticle.position.copy(_gp).addScaledVector(_gd, Math.min(dist, 2));
+    reticle.scale.setScalar(Math.min(dist, 2) / 1);
+    reticle.lookAt(_gp);
+    reticle.material.color.set(h ? 0xff5fa2 : 0xffffff);
+  }
+  function gazeInteract() {
+    if (state === 'room') {
+      const h = gazeHit();
+      // prefer a controller that is pointing at something, else what you're looking at
+      updateHover();
+      if (!hovered && h) {
+        hovered = h.object;
+        if (hovered.material.emissive) hovered.material.emissive.set(0x552233);
+      }
+      interact();
+    } else if (state === 'play' && !busy) {
+      const pointing = controllers.some(c => c.userData.source && (vrLineHover(c), hoverX !== null));
+      if (!pointing) { gazeRay(ray); hoverLine(); }
+      if (hoverX !== null) guess(hoverX);
+    }
+  }
+  addEventListener('keydown', e => {
+    if (!vr || e.repeat) return;
+    if (['Space', 'Enter', 'KeyF'].includes(e.code)) { e.preventDefault(); gazeInteract(); }
+    if (state === 'room' && e.code === 'KeyQ') player.yaw += Math.PI / 6;
+    if (state === 'room' && e.code === 'KeyE') player.yaw -= Math.PI / 6;
+  });
+
+  function onVrSelect(c) {
+    if (state === 'room') { updateHover(c); interact(); }
+    else if (state === 'play') { vrLineHover(c); if (!busy && hoverX !== null) guess(hoverX); }
+  }
+  function vrLineHover(c) {
+    rayFromController(c, ray);
+    hoverLine();
+    const h = ray.intersectObject(hitbox)[0];
+    c.userData.line.scale.z = h ? h.distance : 8;
+  }
+
+  // A text panel that floats in front of you in the headset (DOM text can't be seen in VR)
+  const vrCanvas = document.createElement('canvas');
+  vrCanvas.width = 1024; vrCanvas.height = 384;
+  const vrTex = new THREE.CanvasTexture(vrCanvas);
+  const vrPanel = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.6), new THREE.MeshBasicMaterial({ map: vrTex, transparent: true, depthTest: false }));
+  vrPanel.renderOrder = 30;
+  vrPanel.visible = false;
+  let vrLines = [];
+  function drawVrPanel() {
+    const g = vrCanvas.getContext('2d');
+    g.clearRect(0, 0, 1024, 384);
+    const sub = state === 'room' ? `${PUZZLES.filter(k => solved[k]).length} / ${PUZZLES.length} illusions solved`
+      : state === 'play' ? `Find the number between ${loStr} and ${hiStr}` : '';
+    const lines = vrLines.filter(Boolean);
+    if (!lines.length && !sub) { vrTex.needsUpdate = true; return; }
+    g.fillStyle = 'rgba(20,8,30,0.72)';
+    g.beginPath(); g.roundRect ? g.roundRect(8, 8, 1008, 368, 40) : g.rect(8, 8, 1008, 368); g.fill();
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    const wrap = (text, max) => {
+      const words = text.split(' '), out = [];
+      let cur = '';
+      words.forEach(w => { const tst = cur ? cur + ' ' + w : w; if (g.measureText(tst).width > max && cur) { out.push(cur); cur = w; } else cur = tst; });
+      if (cur) out.push(cur);
+      return out;
+    };
+    g.font = 'bold 44px "Space Mono", monospace';
+    let rows = [];
+    lines.forEach(l => rows = rows.concat(wrap(l, 920)));
+    rows = rows.slice(-4);
+    const top = sub ? 150 - rows.length * 27 : 192 - (rows.length - 1) * 30;
+    g.fillStyle = '#fff6ec';
+    rows.forEach((r, i) => g.fillText(r, 512, top + i * 58));
+    if (sub) { g.font = '32px "Space Mono", monospace'; g.fillStyle = '#ffb36b'; g.fillText(sub, 512, 320); }
+    vrTex.needsUpdate = true;
+  }
+  function vrSay(...lines) { vrLines = lines; drawVrPanel(); }
+  const _hp = new THREE.Vector3(), _hd = new THREE.Vector3(), _tgt = new THREE.Vector3();
+  function followPanel(cam, dt) {
+    camPose(cam, _hp, _hd);
+    _hd.y = 0;
+    if (_hd.lengthSq() < 1e-4) _hd.set(0, 0, -1);
+    _hd.normalize();
+    _tgt.copy(_hp).addScaledVector(_hd, 1.8);
+    _tgt.y = _hp.y - 0.8 * (flip > 0.5 && state === 'room' ? -1 : 1);
+    if (vrPanel.position.distanceToSquared(_tgt) > 4) vrPanel.position.copy(_tgt);
+    vrPanel.position.lerp(_tgt, Math.min(1, dt * 3));
+    vrPanel.lookAt(_hp);
+  }
+  // keep controllers and the panel in whichever scene is live
+  function attachVr() {
+    const inRoom = state === 'room' || state === 'transition';
+    const host = inRoom ? rigInner : prigInner;
+    controllers.forEach(c => host.add(c));
+    (inRoom ? room : scene).add(vrPanel);
+    (inRoom ? room : scene).add(reticle);
+    if (vr) vrPanel.position.set(0, -100, 0); // snap into place next frame
+  }
+
+  async function enterVR() {
+    if (!navigator.xr || vr) return;
+    try {
+      const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] });
+      renderer.xr.setReferenceSpaceType('local-floor');
+      await renderer.xr.setSession(session);
+      vr = true;
+      vrPanel.visible = true;
+      $('lockHint').classList.add('hidden');
+      prig.position.set(0, -0.2, 13);
+      camera.position.set(0, 0, 0); camera.rotation.set(0, 0, 0);
+      rcam.position.set(0, 0, 0); rcam.rotation.set(0, 0, 0);
+      attachVr();
+      drawVrPanel();
+      session.addEventListener('end', () => {
+        vr = false;
+        vrPanel.visible = false;
+        prig.position.set(0, 0, 0);
+        camera.position.set(0, 3, 22);
+        rcam.position.set(0, EYE, 0);
+        controllers.forEach(c => c.parent && c.parent.remove(c));
+      });
+    } catch (err) {
+      setMsg('Could not start VR: ' + err.message);
+    }
+  }
+  if (navigator.xr && navigator.xr.isSessionSupported) {
+    navigator.xr.isSessionSupported('immersive-vr').then(ok => {
+      if (!ok) return;
+      ['startVR', 'vrIn'].forEach(id => { $(id).style.display = ''; $(id).classList.remove('hidden'); });
+      $('vrNote').style.display = '';
+    }).catch(() => {});
+  }
+  $('startVR').onclick = () => { enterVR(); startGame(); };
+  $('vrIn').onclick = () => enterVR();
+
+  // =====================================================================
+  //  GAME FLOW
+  // =====================================================================
+  const ROUNDS = 7;
+  const MESSAGES = [
+    " is just a number. The one you want is somewhere in between.",
+    "? Closer… but look — there's still space.",
+    ". Every time you look, the gap opens up again.",
+    ". Ersheim would say the one you want is called bleem.",
+    ". Infinitely many numbers. Not the one.",
+    ". You're dreaming in decimals now.",
+    ". Hold on… bleem?"
+  ];
+  let lo = 3, hi = 4, loStr = '3', hiStr = '4';
+  let round = 0, state = 'title', busy = false;
+  const hud = $('hud');
+  const msg = $('msg');
+  const roundEl = $('round');
+
+  function digitsFor(width) { return Math.max(1, Math.ceil(-Math.log10(width / 20))); }
+  function valueAt(x) { return lo + ((x + HALF) / (HALF * 2)) * (hi - lo); }
+  function fmt(v) { return v.toFixed(digitsFor(hi - lo)); }
+
+  let msgTimer;
+  function setMsg(t) {
+    msg.style.opacity = 0;
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { msg.textContent = t; msg.style.opacity = 1; }, 250);
+    vrSay(t);
+  }
+  function updateHud() {
+    $('lo').textContent = loStr;
+    $('hi').textContent = hiStr;
+    loLabel.userData.set(loStr);
+    hiLabel.userData.set(hiStr);
+    roundEl.textContent = `attempt ${Math.min(round + 1, ROUNDS)} / ∞`;
+  }
+  function showRoomUi(on) {
+    ['glyphs', 'roomHud', 'crosshair'].forEach(id => $(id).classList.toggle('hidden', !on));
+    if (!on) $('lockHint').classList.add('hidden');
+  }
+
+  // Number-line input
+  const ray = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let hoverX = null;
+  function pointer(e) {
+    const p = e.touches ? e.touches[0] : e;
+    mouse.set((p.clientX / innerWidth) * 2 - 1, -(p.clientY / innerHeight) * 2 + 1);
+    if (state !== 'play' || vr) return;
+    ray.setFromCamera(mouse, camera);
+    hoverLine();
+  }
+  function hoverLine() {
+    const hit = ray.intersectObject(hitbox)[0];
+    if (hit && !busy) {
+      const local = lineGroup.worldToLocal(hit.point.clone());
+      hoverX = THREE.MathUtils.clamp(local.x, -HALF * 0.97, HALF * 0.97);
+      cursor.visible = cursorLabel.visible = true;
+      cursor.position.set(hoverX, 0.9, 0);
+      cursorLabel.position.set(hoverX, 1.9, 0);
+      cursorLabel.userData.set(fmt(valueAt(hoverX)));
+      renderer.domElement.style.cursor = 'pointer';
+    } else {
+      hoverX = null;
+      cursor.visible = cursorLabel.visible = false;
+      renderer.domElement.style.cursor = 'default';
+    }
+  }
+  addEventListener('pointermove', pointer);
+  renderer.domElement.addEventListener('pointerdown', e => {
+    if (vr) { if (locked) gazeInteract(); return; }
+    if (state === 'room') {
+      applyRig();
+      updateHover();
+      interact();
+      return;
+    }
+    pointer(e);
+    if (state === 'play' && !busy && hoverX !== null) guess(hoverX);
+  });
+
+  // Effects
+  const bursts = [];
+  function burst(x) {
+    const n = 60, g = new THREE.BufferGeometry(), p = new Float32Array(n * 3), v = [];
+    for (let i = 0; i < n; i++) { p[i*3] = x; p[i*3+1] = 0; p[i*3+2] = 0; v.push(new THREE.Vector3((Math.random()-.5)*6, Math.random()*5, (Math.random()-.5)*6)); }
+    g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xff8fc0, size: 0.18, transparent: true }));
+    lineGroup.add(pts);
+    bursts.push({ pts, v, life: 1 });
+  }
+  const tweens = [];
+  function tween(ms, fn, done) { tweens.push({ t0: performance.now(), ms, fn, done }); }
+  const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+
+  function guess(x) {
+    busy = true;
+    const v = valueAt(x);
+    const vStr = fmt(v);
+    const vNum = parseFloat(vStr);
+    cursor.visible = cursorLabel.visible = false;
+    burst(x);
+    const pin = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), new THREE.MeshBasicMaterial({ color: 0xff5fa2 }));
+    pin.position.set(x, 0, 0);
+    tickGroup.add(pin);
+    setMsg(`${vStr}${MESSAGES[round]}`);
+    round++;
+    if (round >= ROUNDS) { setTimeout(ending, 2600); return; }
+
+    const left = x < 0;
+    const newLo = left ? lo : vNum, newHi = left ? vNum : hi;
+    const xa = left ? -HALF : x, xb = left ? x : HALF;
+    const c = (xa + xb) / 2, k = (HALF * 2) / (xb - xa);
+    setTimeout(() => {
+      tween(1600, t => {
+        const e = ease(t);
+        tickGroup.scale.x = 1 + (k - 1) * e;
+        tickGroup.position.x = -c * k * e;
+        tickMat.opacity = 0.85 * (1 - e * 0.8);
+        if (!vr) {
+          camera.fov = 55 - Math.sin(t * Math.PI) * 12;
+          camera.updateProjectionMatrix();
+        }
+      }, () => {
+        lo = newLo; hi = newHi;
+        loStr = left ? loStr : vStr;
+        hiStr = left ? vStr : hiStr;
+        buildTicks();
+        tickMat.opacity = 0;
+        tween(600, t => { tickMat.opacity = 0.85 * t; });
+        updateHud();
+        busy = false;
+      });
+    }, 1400);
+  }
+
+  const timers = [];
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+
+  function ending() {
+    state = 'ending';
+    hud.classList.add('hidden');
+    roundEl.classList.add('hidden');
+    msg.style.opacity = 0;
+    tween(2500, t => {
+      lineGroup.scale.x = 1 + t * 6;
+      lineGroup.position.y = 2 + t * 2;
+      bar.material.opacity = 1 - t;
+    }, () => { lineGroup.visible = false; });
+
+    later(() => {
+      const end = $('ending');
+      end.scrollTop = 0;
+      end.classList.remove('hidden');
+      fadeVolume(0.4, 3000);
+      const lines = end.querySelectorAll('.line');
+      lines.forEach(l => l.classList.remove('show'));
+      const T = [...lines].map(l => l.textContent);
+      later(() => { lines[0].classList.add('show'); vrSay(T[0]); }, 1500);
+      later(() => { lines[1].classList.add('show'); vrSay(T[0], T[1]); }, 5000);
+      later(() => { lines[2].classList.add('show'); vrSay(T[0], T[1], T[2]); }, 8500);
+      later(credits, 14500);
+    }, 2200);
+  }
+
+  // Credits auto-scroll; wheel/touch/keys pause it so you can read at your own pace
+  let creditsRaf = null, userScrolled = false;
+  function credits() {
+    state = 'credits';
+    if (vr) {
+      vrSay('Music: “The Other Side of Paradise”', 'by Glass Animals', 'Thanks for playing');
+      later(() => { const sess = renderer.xr.getSession(); sess && sess.end(); }, 8000);
+    }
+    $('ending').classList.add('hidden');
+    const cr = $('credits');
+    cr.scrollTop = 0;
+    cr.classList.remove('hidden');
+    $('scrollTip').classList.remove('hidden');
+    fadeVolume(0.8, 3000);
+    userScrolled = false;
+    let pos = 0, last = performance.now();
+    const step = now => {
+      const dt = (now - last) / 1000; last = now;
+      if (!userScrolled) {
+        pos += dt * 45;
+        cr.scrollTop = pos;
+      }
+      if (state === 'credits') creditsRaf = requestAnimationFrame(step);
+    };
+    cancelAnimationFrame(creditsRaf);
+    creditsRaf = requestAnimationFrame(step);
+  }
+  ['wheel', 'touchstart', 'keydown'].forEach(ev => $('credits').addEventListener(ev, () => {
+    userScrolled = true;
+    $('scrollTip').classList.add('hidden');
+  }, { passive: true }));
+  addEventListener('keydown', e => {
+    if (state === 'credits' && ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Space'].includes(e.code)) {
+      userScrolled = true;
+      $('scrollTip').classList.add('hidden');
+    }
+  });
+
+  function resetLine() {
+    lo = 3; hi = 4; loStr = '3'; hiStr = '4'; round = 0; busy = false;
+    lineGroup.visible = true; lineGroup.scale.set(1, 1, 1); lineGroup.position.y = 2;
+    bar.material.opacity = 1;
+    buildTicks();
+    tickMat.opacity = 0.85;
+    updateHud();
+  }
+
+  function startRoom() {
+    resetRoom();
+    state = 'room';
+    attachVr();
+    showRoomUi(true);
+    if (!vr) $('lockHint').classList.remove('hidden');
+    setMsg('Where am I? Twelve secrets hide in this room. Ersheim left notes.');
+  }
+
+  function enterFinale() {
+    state = 'transition';
+    if (document.exitPointerLock) document.exitPointerLock();
+    showRoomUi(false);
+    setMsg('');
+    $('fade').style.opacity = 1;
+    later(() => {
+      resetLine();
+      player.yaw = 0; player.pitch = 0;
+      state = 'play';
+      attachVr();
+      hud.classList.remove('hidden');
+      roundEl.classList.remove('hidden');
+      $('fade').style.opacity = 0;
+      setMsg('You walked out backwards… into paradise. Now: the number between 3 and 4.');
+    }, 1400);
+  }
+
+  function startGame() {
+    timers.forEach(clearTimeout); timers.length = 0;
+    cancelAnimationFrame(creditsRaf);
+    $('title').classList.add('hidden');
+    $('titleCredit').classList.add('hidden');
+    $('credits').classList.add('hidden');
+    $('ending').classList.add('hidden');
+    $('scrollTip').classList.add('hidden');
+    hud.classList.add('hidden');
+    roundEl.classList.add('hidden');
+    muteBtn.classList.remove('hidden');
+    if (audio.paused) audio.play().catch(() => fallback.classList.remove('hidden'));
+    audio.volume = 0.8;
+    startRoom();
+  }
+  $('start').onclick = startGame;
+  $('again').onclick = startGame;
+
+  // =====================================================================
+  //  LOOP
+  // =====================================================================
+  const clock = new THREE.Clock();
+  let t = 0;
+  function animate() {
+    const dt = Math.min(clock.getDelta(), 0.05);
+    t += dt;
+    const now = performance.now();
+    for (let i = tweens.length - 1; i >= 0; i--) {
+      const tw = tweens[i];
+      const k = Math.min(1, (now - tw.t0) / tw.ms);
+      tw.fn(k);
+      if (k >= 1) { tweens.splice(i, 1); tw.done && tw.done(); }
+    }
+
+    if (vr) followPanel(state === 'room' || state === 'transition' ? rcam : camera, dt);
+    if (vr && canLook()) {
+      const ls = 1.8 * dt;
+      if (keys.ArrowLeft) player.yaw += ls;
+      if (keys.ArrowRight) player.yaw -= ls;
+      if (keys.ArrowUp) player.pitch = Math.min(1.45, player.pitch + ls);
+      if (keys.ArrowDown) player.pitch = Math.max(-1.45, player.pitch - ls);
+      if (state === 'play') prigPivot.rotation.set(player.pitch, player.yaw, 0);
+    } else prigPivot.rotation.set(0, 0, 0);
+    updateReticle();
+    if (state === 'room' || state === 'transition') {
+      if (state === 'room') updateRoom(dt, t);
+      renderer.render(room, rcam);
+      return;
+    }
+
+    sky.material.uniforms.uTime.value = t;
+    sunMat.uniforms.uTime.value = t;
+    const pos = oceanGeo.attributes.position.array;
+    for (let i = 0; i < pos.length; i += 3) {
+      const x = oceanBase[i], z = oceanBase[i + 2];
+      pos[i + 1] = Math.sin(x * 0.08 + t * 0.9) * 0.7 + Math.cos(z * 0.11 + t * 0.7) * 0.6;
+    }
+    oceanGeo.attributes.position.needsUpdate = true;
+    oceanGeo.computeVertexNormals();
+    palms.forEach(p => p.rotation.z = Math.sin(t * 0.6 + p.userData.sway) * 0.03);
+    sparks.rotation.y = t * 0.02;
+    sparks.position.y = Math.sin(t * 0.4) * 0.5;
+    if (lineGroup.visible && state !== 'ending') lineGroup.position.y = 2 + Math.sin(t * 0.8) * 0.15;
+    barGlow.material.opacity = 0.14 + Math.sin(t * 2) * 0.06;
+    cursor.rotation.y = t * 2;
+    for (let i = bursts.length - 1; i >= 0; i--) {
+      const b = bursts[i], a = b.pts.geometry.attributes.position.array;
+      b.life -= 0.016;
+      b.v.forEach((v, j) => { v.y -= 0.12; a[j*3] += v.x * 0.016; a[j*3+1] += v.y * 0.016; a[j*3+2] += v.z * 0.016; });
+      b.pts.geometry.attributes.position.needsUpdate = true;
+      b.pts.material.opacity = Math.max(0, b.life);
+      if (b.life <= 0) { lineGroup.remove(b.pts); b.pts.geometry.dispose(); bursts.splice(i, 1); }
+    }
+    if (vr) {
+      if (state === 'play') for (const c of controllers) { if (!c.userData.source) continue; vrLineHover(c); if (hoverX !== null) break; }
+    } else {
+      camera.position.x = Math.sin(t * 0.15) * 1.2 + mouse.x * 0.8;
+      camera.position.y = 3 + Math.sin(t * 0.2) * 0.3 + mouse.y * 0.4;
+      camera.lookAt(0, 2, 0);
+    }
+    renderer.render(scene, camera);
+  }
+  renderer.setAnimationLoop(animate);
+
+  addEventListener('resize', () => {
+    camera.aspect = rcam.aspect = innerWidth / innerHeight;
+    camera.position.z = innerWidth < 700 ? 34 : 22;
+    camera.updateProjectionMatrix();
+    rcam.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+  dispatchEvent(new Event('resize'));
+  document.fonts && document.fonts.ready.then(() => {
+    loLabel.userData.set(loStr); hiLabel.userData.set(hiStr);
+    checker.redraw(!!solved.checker); muller.redraw(!!solved.muller);
+  });
+
+  // Small hook for testing from the console
+  window.__paradise = { get state() { return state; }, solved: () => solved, player, enterFinale, keys, buttons, pedestal,
+    aimAt(v) { const d = v.clone().sub(player.pos).normalize(); player.yaw = Math.atan2(-d.x, -d.z); player.pitch = Math.asin(d.y); } };
+})();
+</script>
+</body>
+</html>
