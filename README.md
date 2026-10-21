@@ -48,4 +48,4 @@ Then: leave through the door. It's on the other side.
 
 - **Music:** "The Other Side of Paradise" by Glass Animals, from *How to Be a Human Being* (2016). All music rights belong to Glass Animals and their labels; the track is included here for the game only.
 - **Inspired by** "The Secret Number", a short film by Colin Levy (2012), adapted from the short story by Igor Teper.
-- Built with [three.js](https://threejs.org/).
+- Built with [three.js](https://threejs.org/) r128 (bundled as `three.min.js`, MIT license). The PICO 4 emulator uses Meta's IWER (bundled as `iwer.min.js`, MIT license).
